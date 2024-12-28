@@ -9,13 +9,14 @@
 //   https://github.com/lacchain/openssl-pqe-engine/tree/61d0fe530720f6b7e646db786c79f3db716133f3/ibrand_service
 
 #include "openslide-private.h"
-#include "openslide-decode-aes.h"
 #include "openslide-decode-jpeg.h"
 #include "openslide-decode-pbkdf2.h"
 
 #include <math.h>
 
 #include <openssl/sha.h>
+#include <openssl/evp.h>
+#include <openssl/aes.h>
 #include "json.h"
 
 static const bool SupportLegacy = false; // TODO support Legacy(version <= 3)
@@ -1168,37 +1169,39 @@ static bool intemedic_tron_open(openslide_t *osr, const char *filename,
       for (int i = 0; i < num; i++)
         salt[i] = data[i];
 
-      uint8_t array[num];
+      uint8_t iv[num];
       for (int i = num; i < num * 2; i++)
-        array[i - num] = data[i];
+        iv[i - num] = data[i];
 
-      uint8_t array2[dataLength - num * 2];
+      uint8_t input[dataLength - num * 2];
       for (int i = num * 2; i < dataLength; i++)
-        array2[i - num * 2] = data[i];
+        input[i - num * 2] = data[i];
 
       tRfc2898DeriveBytes *rfc2898DeriveBytes = _openslide_Rfc2898DeriveBytes_Init((const unsigned char *)CypherKey, (uint32_t)strlen(CypherKey), salt, num);
-      uint8_t *bytes = _openslide_Rfc2898DeriveBytes_GetBytes(rfc2898DeriveBytes, 32);
+      uint8_t *keyBytes = _openslide_Rfc2898DeriveBytes_GetBytes(rfc2898DeriveBytes, 32);
       g_free(rfc2898DeriveBytes);
-      int cipherLen = sizeof(array2);
-      _openslide_aes_decode_cbc(AES_CYPHER_256, array2, cipherLen, bytes, array);
-      g_free(bytes);
+      int cipherLen = sizeof(input);
 
-      // PKCS#7 padding;
-      // this is a byte padding and common with CBC mode,
-      // let x be the remaining byte, then fill the rest with x as byte encoded.
-      // For example, if two bytes needed to fill then pad two times 0x02.
-      // This also has a special case, that what if the last block is full, the create a new block and fill with 0x1F 16-times
-      uint8_t x = array2[cipherLen - 1];
-      g_assert(x >= 0x01 && x <= 0x1F);
+      uint8_t output[cipherLen];
+      int outLen1 = 0; int outLen2 = 0;
+
+      EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+      EVP_CIPHER_CTX_init(ctx);
+      EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, keyBytes, iv);
+      EVP_CIPHER_CTX_set_padding(ctx, EVP_PADDING_PKCS7);
+      EVP_DecryptUpdate(ctx, output, &outLen1, input, cipherLen);
+      EVP_DecryptFinal(ctx, output + outLen1, &outLen2);
+
+      g_free(keyBytes);
 
       // hash check
       uint8_t second[SHA256_DIGEST_LENGTH];
       EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
       const EVP_MD *md = EVP_sha256();
-      int clearLen = cipherLen - x;
+      int clearLen = outLen1 + outLen2;
       g_assert(cipherLen == (clearLen + 16 - (clearLen % 16)));
       EVP_DigestInit_ex(mdctx, md, NULL); // ex or ex2
-      EVP_DigestUpdate(mdctx, array2, clearLen);
+      EVP_DigestUpdate(mdctx, output, clearLen);
       EVP_DigestFinal_ex(mdctx, second, 0);
       EVP_MD_CTX_destroy(mdctx);
 
@@ -1207,7 +1210,7 @@ static bool intemedic_tron_open(openslide_t *osr, const char *filename,
         break;
       }
 
-      json_object *slideMetadataJson = json_tokener_parse((const char *)array2);
+      json_object *slideMetadataJson = json_tokener_parse((const char *)output);
       json_object *slideMetadataObj = json_object_object_get(slideMetadataJson, SlideMetadata);
 
       json_object_object_foreach(slideMetadataObj, key, val) {
