@@ -127,6 +127,7 @@ dicom_dep      = dependency(
 valgrind_dep   = dependency('valgrind', required : false)
 crypto_dep     = dependency('libcrypto')
 json_dep       = dependency('json-c')
+gsf_dep       = dependency('libgsf-1')
 
 doxygen = find_program(
   'doxygen',

@@ -449,8 +449,8 @@ static void destroy_associated_image(struct _openslide_associated_image *_img) {
   struct associated_image *img = (struct associated_image *) _img;
 
   g_free(img->filename);
-  if (img->buf)
-    g_free(g_steal_pointer(&img->buf));
+  // if (img->buf)
+  //   g_free(g_steal_pointer(&img->buf));
   g_free(img);
 }
 

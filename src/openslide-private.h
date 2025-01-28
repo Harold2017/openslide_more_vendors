@@ -159,10 +159,6 @@ void *_openslide_inflate_buffer(const void *src, int64_t src_len,
                                 int64_t dst_len,
                                 GError **err);
 
-void *_openslide_inflate_buffer_2(const void *src, int64_t src_len,
-                                  int64_t dst_len,
-                                  GError **err);
-
 void *_openslide_zstd_decompress_buffer(const void *src, int64_t src_len,
                                         int64_t dst_len, GError **err);
 
