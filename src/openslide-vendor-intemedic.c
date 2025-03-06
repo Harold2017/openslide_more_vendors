@@ -433,16 +433,13 @@ static void ls_R(GsfInput *input,
 	g_free (new_prefix);
 }
 
-static uint32_t *read_image(openslide_t *osr,
-                            struct image *image,
+static uint32_t *read_image(struct image *image,
                             int w, int h,
                             GError **err) {
-  struct intemedic_ops_data *data = osr->data;
   bool result = false;
 
-  g_autoptr(_openslide_file) f = _openslide_fopen(data->filename, err);
-  if (f == NULL) {
-    g_set_error(err, OPENSLIDE_ERROR, OPENSLIDE_ERROR_FAILED, "File is NULL");
+  // make sure the offset is set to the beginning before reading buffer
+  if (gsf_input_seek(image->input, 0, G_SEEK_SET)) {
     return NULL;
   }
   const void *uncompressed = gsf_input_read(image->input, image->uncompressed_size, NULL);
@@ -521,7 +518,7 @@ static bool read_tile(openslide_t *osr,
                                             &cache_entry);
 
   if (!tiledata) {
-    tiledata = read_image(osr, tile->image, iw, ih, err);
+    tiledata = read_image(tile->image, iw, ih, err);
     if (tiledata == NULL) {
       return false;
     }
