@@ -277,28 +277,23 @@ static void ls_R(GsfInput *input,
 
       // deserialize body
       uint8_t first[32];
-      for (int i = 8; i < 40; i++)
-        first[i - 8] = slideMetadata[i];
+      memcpy(first, slideMetadata + 8, 32);
 
       int blockSize = 128;
       int num = blockSize / 8;
 
       int dataLength = uncompressed_size - 40;
       uint8_t data[dataLength];
-      for (int64_t i = 40; i < uncompressed_size; i++)
-        data[i - 40] = slideMetadata[i];
+      memcpy(data, slideMetadata + 40, dataLength);
 
       uint8_t salt[num];
-      for (int i = 0; i < num; i++)
-        salt[i] = data[i];
+      memcpy(salt, data, num);
 
       uint8_t iv[num];
-      for (int i = num; i < num * 2; i++)
-        iv[i - num] = data[i];
+      memcpy(iv, data + num, num);
 
       uint8_t input[dataLength - num * 2];
-      for (int i = num * 2; i < dataLength; i++)
-        input[i - num * 2] = data[i];
+      memcpy(input, data + num * 2, dataLength - num * 2);
 
       tRfc2898DeriveBytes *rfc2898DeriveBytes = _openslide_Rfc2898DeriveBytes_Init((const unsigned char *)CypherKey, (uint32_t)strlen(CypherKey), salt, num);
       uint8_t *keyBytes = _openslide_Rfc2898DeriveBytes_GetBytes(rfc2898DeriveBytes, 32);
@@ -306,8 +301,7 @@ static void ls_R(GsfInput *input,
       int cipherLen = sizeof(input);
 
       uint8_t output[cipherLen];
-      for (int i = 0; i < cipherLen; i++)
-        output[i] = 0;
+      memset(output, 0 , cipherLen * sizeof(uint8_t));
       int outLen1 = 0; int outLen2 = 0;
 
       EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
@@ -322,8 +316,7 @@ static void ls_R(GsfInput *input,
 
       // hash check
       uint8_t second[SHA256_DIGEST_LENGTH];
-      for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-        second[i] = 0;
+      memset(second, 0 , SHA256_DIGEST_LENGTH * sizeof(uint8_t));
       EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
       const EVP_MD *md = EVP_sha256();
       int clearLen = outLen1 + outLen2;
