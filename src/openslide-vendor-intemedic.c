@@ -151,39 +151,33 @@ static bool process_local_files(GsfInput *input,
 
   char *tiledatafilename = input->name;
 
-  uint16_t filenameLength = strlen(tiledatafilename);
+  int64_t tile_col = 0;
+  int64_t tile_row = 0;
+  int zoom_level = 0;
 
-  int32_t tile_col = 0;
-  int32_t tile_row = 0;
-  int32_t zoom_level = 0;
-
-  // spilt filename
-  char filename[filenameLength + 1];
-  strcpy(filename, tiledatafilename);
-  char *temp = strtok(filename, "\\");
-  int j = 0;
-
-  while (temp) {
-    if (j == 0) {
-      sscanf(temp, "%d", &zoom_level);
-    } else if (j == 2) {
-      sscanf(temp, "%d", &tile_row);
-    } else if (j == 3) {
-      temp = strtok(temp, ".");
-      sscanf(temp, "%d", &tile_col);
+  // Split filename by backslashes
+  g_auto(GStrv) path_components = g_strsplit(tiledatafilename, "\\", 0);
+  if (g_strv_length(path_components) >= 4) {
+    // Parse zoom level (first component)
+    int64_t tmp_zoom;
+    if (_openslide_parse_int64(path_components[0], &tmp_zoom)) {
+      zoom_level = tmp_zoom;
     }
-    temp = strtok(NULL, "\\");
-    j++;
-  }
 
-  if (zoom_level < 0) {
-    g_set_error(err, OPENSLIDE_ERROR, OPENSLIDE_ERROR_FAILED,
-                "zoom level < 0");
-    return false;
-  } else if (zoom_level >= zoom_levels) {
-    g_set_error(err, OPENSLIDE_ERROR, OPENSLIDE_ERROR_FAILED,
-                "zoom level >= zoom levels");
-    return false;
+    // Parse tile row (third component)
+    int64_t tmp_row;
+    if (_openslide_parse_int64(path_components[2], &tmp_row)) {
+      tile_row = tmp_row;
+    }
+
+    // Parse tile column (fourth component, before dot)
+    g_auto(GStrv) col_components = g_strsplit(path_components[3], ".", 2);
+    if (g_strv_length(col_components) >= 1) {
+      int64_t tmp_col;
+      if (_openslide_parse_int64(col_components[0], &tmp_col)) {
+        tile_col = tmp_col;
+      }
+    }
   }
 
   struct level *l = levels[zoom_level];
@@ -343,45 +337,68 @@ static void ls_R(GsfInput *input,
                               g_strdup_printf("intemedic.%s", key),
                               g_strdup(value));
         } else if (strcmp(key, KEY_BACKGROUND_COLOR) == 0) {
-          char bg_value[strlen(value) + 1];
-          strcpy(bg_value, value);
-          char *temp = strtok(bg_value, ",");
-          uint8_t r;
-          uint8_t g;
-          uint8_t b;
-          int j = 0;
-          while (temp) {
-            if (j == 0) {
-              sscanf(temp + 1, "%hhu", &r);
-            } else if (j == 1) {
-              sscanf(temp, "%hhu", &g);
-              temp = strtok(temp, ",");
-              sscanf(temp, "%hhu", &b);
-            }
-            temp = strtok(NULL, "\\");
-            j++;
+          // Remove surrounding quotes
+          gchar *trimmed_value = g_strstrip(g_strdup(value));
+          if (trimmed_value[0] == '"' && trimmed_value[strlen(trimmed_value) - 1] == '"') {
+              trimmed_value[strlen(trimmed_value) - 1] = '\0';
+              trimmed_value++; // Move pointer forward to remove leading quote
           }
-          int64_t bg = (r << 16) | (g << 8) | b;
-          g_hash_table_insert(osr->properties,
-                              g_strdup_printf("intemedic.%s", key),
-                              g_strdup_printf("%" PRId64, bg));
+
+          g_auto(GStrv) components  = g_strsplit(trimmed_value, ",", 3);
+          if (g_strv_length(components) >= 3) {
+            uint64_t r, g, b;
+            // Parse RGB components with error checking
+            if (_openslide_parse_uint64(components[0], &r, 10) &&
+                _openslide_parse_uint64(components[1], &g, 10) &&
+                _openslide_parse_uint64(components[2], &b, 10)) {
+              // Validate 8-bit range
+              if (r <= 255 && g <= 255 && b <= 255) {
+                uint64_t bg = (r << 16) | (g << 8) | b;
+                g_hash_table_insert(osr->properties,
+                                    g_strdup_printf("intemedic.%s", key),
+                                    g_strdup_printf("%" PRId64, bg));
+              }
+            }
+          }
+
+          // Clean up
+          if (trimmed_value != value) {
+              trimmed_value--;
+              g_free(trimmed_value);
+          } else {
+              g_free(trimmed_value);
+          }
         } else if (strcmp(key, KEY_TILE_SIZE) == 0) {
-          char ts_value[strlen(value) + 1];
-          strcpy(ts_value, value);
-          char *token = strtok(ts_value, ",");
-          int32_t tile_size = 0;
-          if (token != NULL) {
-            sscanf(token + 1, "%d", &tile_size);
-            g_hash_table_insert(osr->properties,
-                                g_strdup_printf("intemedic.%s", key),
-                                g_strdup(token + 1));
+          // Remove surrounding quotes
+          gchar *trimmed_value = g_strstrip(g_strdup(value));
+          if (trimmed_value[0] == '"' && trimmed_value[strlen(trimmed_value) - 1] == '"') {
+              trimmed_value[strlen(trimmed_value) - 1] = '\0';
+              trimmed_value++; // Move pointer forward to remove leading quote
+          }
+
+          g_auto(GStrv) sizes = g_strsplit(trimmed_value, ",", 0);
+          if (g_strv_length(sizes) >= 2) {
+            uint64_t tile_size;
+            if (sizes[1] && _openslide_parse_uint64(sizes[1], &tile_size, 10)) {
+                g_hash_table_insert(osr->properties,
+                                    g_strdup_printf("intemedic.%s", key),
+                                    g_strdup_printf("%" PRId64, tile_size));
+            }
+          }
+
+          // Clean up
+          if (trimmed_value != value) {
+              trimmed_value--;
+              g_free(trimmed_value);
+          } else {
+              g_free(trimmed_value);
           }
         } else if (strcmp(key, KEY_ADDITIONAL_DATA) == 0) {
           json_object_object_foreach(val, key1, val1) {
             const char *value1 = json_object_to_json_string(val1);
             if (strcmp(key1, KEY_SCAN_DATE_UTC) == 0 ||
                 strcmp(key1, KEY_SCAN_TIME) == 0 ||
-                strcmp(key, KEY_RESAMPLE_FACTOR) == 0 ||
+                strcmp(key1, KEY_RESAMPLE_FACTOR) == 0 ||
                 strcmp(key1, KEY_SCANNER_MODEL) == 0) {
               g_hash_table_insert(osr->properties,
                                   g_strdup_printf("intemedic.%s", key1),
