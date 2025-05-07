@@ -296,6 +296,33 @@ void _openslide_set_background_color_prop(openslide_t *osr,
                       g_strdup_printf("%.02X%.02X%.02X", r, g, b));
 }
 
+uint64_t _openslide_parse_named_color(const char *color_name) {
+    // Simple mapping of common color names to RGB values
+    struct ColorMap {
+        const char *name;
+        uint32_t rgb;
+    };
+
+    const struct ColorMap color_map[] = {
+        {"ButtonFace", 0xF0F0F0},  // Light gray
+        {"red",        0xFF0000},
+        {"green",      0x00FF00},
+        {"blue",       0x0000FF},
+        {"white",      0xFFFFFF},
+        {"black",      0x000000},
+        // Add more color mappings as needed
+        {NULL, 0}
+    };
+
+    for (const struct ColorMap *c = color_map; c->name; c++) {
+        if (g_ascii_strcasecmp(color_name, c->name) == 0) {
+            return c->rgb;
+        }
+    }
+
+    return 0; // Default to black if unknown color
+}
+
 void _openslide_set_bounds_props_from_grid(openslide_t *osr,
                                            struct _openslide_grid *grid) {
   g_return_if_fail(g_hash_table_lookup(osr->properties,

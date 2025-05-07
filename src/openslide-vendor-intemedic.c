@@ -344,6 +344,9 @@ static void ls_R(GsfInput *input,
               trimmed_value++; // Move pointer forward to remove leading quote
           }
 
+          uint64_t bg = 0; // Default to black if parsing fails
+          bool is_rgb = false;
+
           g_auto(GStrv) components  = g_strsplit(trimmed_value, ",", 3);
           if (g_strv_length(components) >= 3) {
             uint64_t r, g, b;
@@ -353,13 +356,22 @@ static void ls_R(GsfInput *input,
                 _openslide_parse_uint64(components[2], &b, 10)) {
               // Validate 8-bit range
               if (r <= 255 && g <= 255 && b <= 255) {
-                uint64_t bg = (r << 16) | (g << 8) | b;
-                g_hash_table_insert(osr->properties,
-                                    g_strdup_printf("intemedic.%s", key),
-                                    g_strdup_printf("%" PRId64, bg));
+                bg = (r << 16) | (g << 8) | b;
+                is_rgb = true;
               }
             }
           }
+
+          // If not RGB, try to parse as named color
+          if (!is_rgb) {
+              // You would need to implement this function to map color names to RGB
+              bg = _openslide_parse_named_color(trimmed_value);
+          }
+
+          // Store the result
+          g_hash_table_insert(osr->properties,
+                            g_strdup_printf("intemedic.%s", key),
+                            g_strdup_printf("%" PRId64, bg));
 
           // Clean up
           if (trimmed_value != value) {
