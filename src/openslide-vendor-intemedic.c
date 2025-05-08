@@ -278,7 +278,7 @@ static void ls_R(GsfInput *input,
 
       int dataLength = uncompressed_size - 40;
       g_autofree uint8_t *data = g_malloc(dataLength);
-	    memcpy(data, slideMetadata + 40, dataLength);
+	  memcpy(data, slideMetadata + 40, dataLength);
 
       uint8_t salt[num];
       memcpy(salt, data, num);
@@ -286,15 +286,15 @@ static void ls_R(GsfInput *input,
       uint8_t iv[num];
       memcpy(iv, data + num, num);
 
-	    g_autofree uint8_t *input = g_malloc(dataLength - num * 2);
-	    memcpy(input, data + num * 2, dataLength - num * 2);
+	  g_autofree uint8_t *input = g_malloc(dataLength - num * 2);
+	  memcpy(input, data + num * 2, dataLength - num * 2);
 
       tRfc2898DeriveBytes *rfc2898DeriveBytes = _openslide_Rfc2898DeriveBytes_Init((const unsigned char *)CypherKey, (uint32_t)strlen(CypherKey), salt, num);
       g_autofree uint8_t *keyBytes = _openslide_Rfc2898DeriveBytes_GetBytes(rfc2898DeriveBytes, 32);
       g_free(rfc2898DeriveBytes);
       int cipherLen = dataLength - num * 2;
 
-	    g_autofree uint8_t *output = g_malloc(cipherLen);
+	  g_autofree uint8_t *output = g_malloc(cipherLen);
       memset(output, 0, cipherLen * sizeof(uint8_t));
       int outLen1 = 0; int outLen2 = 0;
 
