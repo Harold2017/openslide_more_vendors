@@ -449,8 +449,8 @@ static void destroy_associated_image(struct _openslide_associated_image *_img) {
   struct associated_image *img = (struct associated_image *) _img;
 
   g_free(img->filename);
-  // if (img->buf)
-  //   g_free(g_steal_pointer(&img->buf));
+  if (img->buf)
+    g_free(img->buf);
   g_free(img);
 }
 
@@ -499,7 +499,7 @@ bool _openslide_jpeg_add_associated_image_2(openslide_t *osr,
   img->base.w = w;
   img->base.h = h;
   img->filename = g_strdup(filename);
-  img->buf = buf;
+  img->buf = g_memdup2(buf, len);
   img->buflen = len;
 
   g_hash_table_insert(osr->associated_images, g_strdup(name), img);

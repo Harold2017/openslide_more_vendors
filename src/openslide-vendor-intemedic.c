@@ -424,7 +424,7 @@ static void ls_R(GsfInput *input,
              strcmp(full_name, MacroFileName) == 0) {
     if (!build_up_tiles){
       const char *associated_image_name = strcmp(full_name, LabelFileName) == 0 ? "label" : "macro";
-      if (!_openslide_jpeg_add_associated_image_2(osr, associated_image_name, filename, gsf_input_read(input, input->size, NULL), gsf_input_size(input), err)) {
+      if (!_openslide_jpeg_add_associated_image_2(osr, associated_image_name, filename, (uint32_t *) gsf_input_read(input, input->size, NULL), input->size, err)) {
         g_prefix_error(err, "Couldn't read associated image: %s", associated_image_name);
         return;
       }
