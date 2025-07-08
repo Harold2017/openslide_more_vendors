@@ -52,8 +52,6 @@
 #include <tiff.h>
 #include <cairo.h>
 
-#include "openslide-hash.h"
-
 #define NGR_TILE_HEIGHT 64
 
 // VMS/VMU
@@ -268,7 +266,7 @@ static bool jpeg_random_access_src(j_decompress_ptr cinfo,
   }
 
   // pass the buffer off to mem_src
-  _openslide_jpeg_mem_src(cinfo, buffer, buffer_size);
+  jpeg_mem_src(cinfo, buffer, buffer_size);
 
   return true;
 }

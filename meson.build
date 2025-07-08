@@ -140,10 +140,6 @@ cairo_dep = dependency(
   'cairo',
   version : '>=1.2',
 )
-gdk_pixbuf_dep = dependency(
-  'gdk-pixbuf-2.0',
-  version : '>=2.14',
-)
 xml_dep = dependency('libxml-2.0')
 sqlite_dep = dependency(
   'sqlite3',
@@ -170,6 +166,13 @@ doxygen = find_program(
 )
 
 # Dependency checks
+if jpeg_dep.type_name() != 'internal' and not cc.has_function(
+  'jpeg_mem_src',
+  dependencies : jpeg_dep,
+)
+  error('libjpeg-turbo >= 1.3 or libjpeg >= 9c is required')
+endif
+
 if tiff_dep.type_name() == 'internal' or cc.has_function(
   'TIFFOpenOptionsSetErrorHandlerExtR',
   dependencies : tiff_dep,
