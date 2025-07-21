@@ -22,12 +22,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <unistd.h>
 #include <inttypes.h>
 
 #ifndef _WIN32
 #include <sys/types.h>
 #include <fcntl.h>
+#include <unistd.h>
 #endif
 
 #include <glib.h>
@@ -207,7 +207,7 @@ static void check_shared_cache(const char *slide) {
   cache_thread_start(params, osrs, 4,  100,  100,       0, &stop);
 
   // let them run
-  sleep(1);
+  g_usleep(G_USEC_PER_SEC);
 
   g_atomic_int_set(&stop, 1);
   for (int i = 0; i < CACHE_THREADS; i++) {

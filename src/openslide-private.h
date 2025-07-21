@@ -199,6 +199,10 @@ bool _openslide_clip_tile(uint32_t *tiledata,
                           int64_t clip_w, int64_t clip_h,
                           GError **err);
 
+#define OPENSLIDE_G_DESTROY_NOTIFY_WRAPPER(f) _openslide_notify_ ## f
+#define OPENSLIDE_DEFINE_G_DESTROY_NOTIFY_WRAPPER(f) \
+  static void OPENSLIDE_G_DESTROY_NOTIFY_WRAPPER(f)(void *p) {f(p);}
+
 
 // File handling
 struct _openslide_file;
@@ -208,10 +212,10 @@ size_t _openslide_fread(struct _openslide_file *file, void *buf, size_t size,
                         GError **err);
 bool _openslide_fread_exact(struct _openslide_file *file,
                             void *buf, size_t size, GError **err);
-bool _openslide_fseek(struct _openslide_file *file, off_t offset, int whence,
+bool _openslide_fseek(struct _openslide_file *file, int64_t offset, int whence,
                       GError **err);
-off_t _openslide_ftell(struct _openslide_file *file, GError **err);
-off_t _openslide_fsize(struct _openslide_file *file, GError **err);
+int64_t _openslide_ftell(struct _openslide_file *file, GError **err);
+int64_t _openslide_fsize(struct _openslide_file *file, GError **err);
 void _openslide_fclose(struct _openslide_file *file);
 bool _openslide_fexists(const char *path, GError **err);
 
